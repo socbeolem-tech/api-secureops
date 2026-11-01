@@ -94,29 +94,84 @@ class TaskMutationResponseSchema(Schema):
 # ============================================================================
 
 class EvidenceSummarySchema(Schema):
-    """Evidence summary"""
+    """Evidence summary for list (MVP05)"""
     id = fields.String(required=True)
-    task_id = fields.String(required=True)
-    evidence_type = fields.String(allow_none=True)
-    file_name = fields.String(allow_none=True)
-    file_size_bytes = fields.Integer(allow_none=True)
-    sha256_hash = fields.String(allow_none=True)
-    source = fields.String(allow_none=True)
-    created_at = fields.DateTime(allow_none=True)
+    taskId = fields.String(required=True, data_key='task_id')
+    evidenceType = fields.String(required=False, allow_none=True, data_key='evidence_type')
+    fileName = fields.String(required=False, allow_none=True, data_key='file_name')
+    fileSizeBytes = fields.Integer(required=False, allow_none=True, data_key='file_size_bytes')
+    mimeType = fields.String(required=False, allow_none=True, data_key='mime_type')
+    sha256Hash = fields.String(required=False, allow_none=True, data_key='sha256_hash')
+    source = fields.String(required=False, allow_none=True)
+    uploadVerified = fields.Boolean(required=False, allow_none=True, data_key='upload_verified')
+    createdAt = fields.DateTime(required=False, allow_none=True, data_key='created_at')
+    
+    class Meta:
+        ordered = True
+
+
+class EvidenceDetailSchema(Schema):
+    """Evidence detail with full content (MVP06)"""
+    id = fields.String(required=True)
+    taskId = fields.String(required=True, data_key='task_id')
+    content = fields.String(required=False, allow_none=True)
+    evidenceType = fields.String(required=False, allow_none=True, data_key='evidence_type')
+    fileName = fields.String(required=False, allow_none=True, data_key='file_name')
+    fileSizeBytes = fields.Integer(required=False, allow_none=True, data_key='file_size_bytes')
+    mimeType = fields.String(required=False, allow_none=True, data_key='mime_type')
+    sha256Hash = fields.String(required=False, allow_none=True, data_key='sha256_hash')
+    uploadId = fields.String(required=False, allow_none=True, data_key='upload_id')
+    uploadVerified = fields.Boolean(required=False, allow_none=True, data_key='upload_verified')
+    source = fields.String(required=False, allow_none=True)
+    l1WorkId = fields.String(required=False, allow_none=True, data_key='l1_work_id')
+    createdAt = fields.DateTime(required=False, allow_none=True, data_key='created_at')
+    updatedAt = fields.DateTime(required=False, allow_none=True, data_key='updated_at')
+    
+    class Meta:
+        ordered = True
 
 
 class EvidenceListResponseSchema(Schema):
-    """Response for evidence list (mvp05)"""
+    """Response for evidence list (MVP05)"""
     success = fields.Boolean(required=True)
     data = fields.List(fields.Nested(EvidenceSummarySchema), required=True)
     meta = fields.Dict(required=True)
 
 
-class EvidenceFinalizeRequestSchema(Schema):
-    """Request to finalize upload (mvp18)"""
-    uploadId = fields.String(required=True)
-    evidenceType = fields.String(required=True)
-    fileName = fields.String(required=False)
+class EvidenceDetailResponseSchema(Schema):
+    """Response for evidence detail (MVP06)"""
+    success = fields.Boolean(required=True)
+    data = fields.Nested(EvidenceDetailSchema, required=True)
+    meta = fields.Dict(required=True)
+
+
+class EvidenceUploadRequestSchema(Schema):
+    """Request body for upload (MVP18)"""
+    evidenceType = fields.String(
+        required=True,
+        validate=validate.OneOf(['log', 'screenshot', 'file', 'network_capture']),
+        data_key='evidenceType',
+        description="Type of evidence"
+    )
+    fileName = fields.String(
+        required=False,
+        allow_none=True,
+        data_key='fileName',
+        description="Override file name (optional)"
+    )
+    content = fields.String(
+        required=False,
+        allow_none=True,
+        data_key='content',
+        description="Text content or metadata (optional)"
+    )
+
+
+class EvidenceUploadResponseSchema(Schema):
+    """Response for upload (MVP18)"""
+    success = fields.Boolean(required=True)
+    data = fields.Dict(required=True)  # {evidenceId, uploadId, fileName, fileSizeBytes, ...}
+    meta = fields.Dict(required=True)
 
 
 # ============================================================================
@@ -165,7 +220,9 @@ task_assessment_update = TaskAssessmentUpdateSchema()
 task_mutation_response = TaskMutationResponseSchema()
 
 evidence_list_schema = EvidenceListResponseSchema()
-evidence_finalize_request = EvidenceFinalizeRequestSchema()
+evidence_detail_schema = EvidenceDetailResponseSchema()
+evidence_upload_request = EvidenceUploadRequestSchema()
+evidence_upload_response = EvidenceUploadResponseSchema()
 
 user_summary_schema = UserSummarySchema()
 system_summary_schema = SystemSummarySchema()
