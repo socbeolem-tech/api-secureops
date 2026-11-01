@@ -55,16 +55,19 @@ def list_response(items, total=None, page=None, per_page=None, status_code=200):
     }), status_code
 
 
-def error_response(error, code=None, status_code=400):
+def error_response(error, code=None, status_code=400, details=None):
     """
     Build standard error response envelope
-    Pattern: {"success": false, "error": "...", "code": "ERROR_CODE"}
+    Pattern: {"success": false, "error": {"code": "...", "message": "...", "details": null, "requestId": "..."}}
     """
     response = {
         'success': False,
-        'error': error,
-        'code': code or 'BAD_REQUEST',
-        'requestId': str(uuid.uuid4()),
+        'error': {
+            'code': code or 'BAD_REQUEST',
+            'message': error,
+            'details': details,
+            'requestId': str(uuid.uuid4())
+        },
         'timestamp': datetime.utcnow().isoformat() + 'Z'
     }
     
@@ -245,3 +248,62 @@ def parse_timestamp(timestamp_str):
         return datetime.fromisoformat(timestamp_str)
     except (ValueError, AttributeError):
         return None
+
+
+# ============================================================================
+# Idempotency Support (DEC-06)
+# ============================================================================
+
+def check_idempotency_key(idempotency_key, method, path):
+    """
+    Check if request was already processed (DEC-06)
+    Returns: (was_processed, status_code, response_body, error_message)
+    """
+    from models import IdempotencyKey
+    
+    if not idempotency_key:
+        return False, None, None, None  # No idempotency key provided
+    
+    # Look up existing key
+    existing = IdempotencyKey.query.filter_by(id=idempotency_key).first()
+    
+    if not existing:
+        return False, None, None, None  # Key not found, process request
+    
+    # Check if expired
+    if existing.is_expired():
+        # Remove expired key and process as new request
+        from models import db
+        db.session.delete(existing)
+        db.session.commit()
+        return False, None, None, None
+    
+    # Key exists and not expired - return cached response
+    return True, existing.response_status, existing.response_body, None
+
+
+def store_idempotency_response(idempotency_key, method, path, status_code, response_body):
+    """
+    Store response for idempotency key
+    """
+    from models import IdempotencyKey, db
+    
+    if not idempotency_key:
+        return  # No key to store
+    
+    # Delete old entry if exists
+    existing = IdempotencyKey.query.filter_by(id=idempotency_key).first()
+    if existing:
+        db.session.delete(existing)
+    
+    # Create new entry
+    key = IdempotencyKey(
+        id=idempotency_key,
+        method=method,
+        path=path,
+        response_status=status_code,
+        response_body=response_body
+    )
+    
+    db.session.add(key)
+    db.session.commit()

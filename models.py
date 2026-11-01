@@ -92,11 +92,11 @@ class User(db.Model):
         return {
             'id': self.id,
             'email': self.email,
-            'full_name': self.full_name,
+            'fullName': self.full_name,
             'role': self.role,
-            'is_active': self.is_active,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'last_login': self.last_login.isoformat() if self.last_login else None
+            'isActive': self.is_active,
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'lastLogin': self.last_login.isoformat() if self.last_login else None
         }
 
 
@@ -130,9 +130,9 @@ class System(db.Model):
             'id': self.id,
             'name': self.name,
             'description': self.description,
-            'sensitivity_level': self.sensitivity_level,
-            'is_active': self.is_active,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'sensitivityLevel': self.sensitivity_level,
+            'isActive': self.is_active,
+            'createdAt': self.created_at.isoformat() if self.created_at else None
         }
 
 
@@ -188,12 +188,12 @@ class Task(db.Model):
             'description': self.description,
             'status': self.status,
             'priority': self.priority,
-            'system_id': self.system_id,
-            'assigned_to': self.assigned_to,
+            'systemId': self.system_id,
+            'assignedTo': self.assigned_to,
             'assessment': self.assessment,
             'version': self.version,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'updatedAt': self.updated_at.isoformat() if self.updated_at else None
         }
         if include_evidences:
             data['evidences'] = [e.to_dict() for e in self.evidences]
@@ -236,15 +236,15 @@ class Evidence(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
-            'task_id': self.task_id,
+            'taskId': self.task_id,
             'content': self.content,
-            'evidence_type': self.evidence_type,
-            'file_name': self.file_name,
-            'file_size_bytes': self.file_size_bytes,
-            'mime_type': self.mime_type,
-            'sha256_hash': self.sha256_hash,
+            'evidenceType': self.evidence_type,
+            'fileName': self.file_name,
+            'fileSizeBytes': self.file_size_bytes,
+            'mimeType': self.mime_type,
+            'sha256Hash': self.sha256_hash,
             'source': self.source,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'createdAt': self.created_at.isoformat() if self.created_at else None
         }
 
 
@@ -295,8 +295,12 @@ class EvidenceUploadSession(db.Model):
             'uploadId': self.id,
             'uploadState': self.upload_state,
             'uploadTarget': self.upload_target,
+            'expectedSizeBytes': self.expected_size_bytes,
+            'actualSizeBytes': self.actual_size_bytes,
+            'sha256Hash': self.sha256_hash,
             'expiresAt': self.expires_at.isoformat() if self.expires_at else None,
-            'verifiedAt': self.verified_at.isoformat() if self.verified_at else None
+            'verifiedAt': self.verified_at.isoformat() if self.verified_at else None,
+            'createdAt': self.created_at.isoformat() if self.created_at else None
         }
 
 

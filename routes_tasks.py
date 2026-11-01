@@ -11,7 +11,8 @@ from auth import token_required, permission_required, check_system_access
 from utils import (
     success_response, error_response, list_response,
     generate_etag, validate_if_match, get_pagination_params,
-    bad_request, forbidden, not_found, conflict, validation_error
+    bad_request, forbidden, not_found, conflict, validation_error,
+    check_idempotency_key, store_idempotency_response
 )
 from schemas import (
     task_list_schema, task_detail_schema,
@@ -85,10 +86,10 @@ def get_task_detail(current_user, task_id):
         if not task:
             return not_found(f'Task {task_id} not found')
         
-        # Check system access
+        # Check system access - return 404 if unauthorized (security masking)
         has_access, error_resp = check_system_access(current_user, task.system_id)
         if not has_access:
-            return error_resp
+            return not_found(f'Task {task_id} not found')
         
         # Generate ETag for concurrency control
         etag = generate_etag(task)
@@ -126,18 +127,29 @@ def mark_updates_seen(current_user, task_id):
     """
     Mark task updates as seen by CTV
     P0-04: Updates watermark tracking
+    DEC-06: Supports Idempotency-Key header for replay protection
     Supports If-Match (optional), Idempotency-Key (optional)
     """
     try:
+        # DEC-06: Check idempotency key
+        idempotency_key = request.headers.get('Idempotency-Key')
+        was_processed, status_code, response_body, error = check_idempotency_key(
+            idempotency_key, request.method, request.path
+        )
+        
+        if was_processed:
+            # Return cached response
+            return jsonify(response_body), status_code
+        
         # Get task
         task = Task.query.filter_by(id=task_id).first()
         if not task:
             return not_found(f'Task {task_id} not found')
         
-        # Check system access
+        # Check system access - return 404 if unauthorized (security masking)
         has_access, error_resp = check_system_access(current_user, task.system_id)
         if not has_access:
-            return error_resp
+            return not_found(f'Task {task_id} not found')
         
         # Parse request body
         data = request.get_json() or {}
@@ -160,6 +172,17 @@ def mark_updates_seen(current_user, task_id):
             'seenThroughVersion': str(task.version),
             'hasNewUpdates': False  # Since we just marked all as seen
         }
+        
+        response_body = {
+            'success': True,
+            'data': resp_data,
+            'meta': {'requestId': request.headers.get('X-Request-ID', '')}
+        }
+        
+        # DEC-06: Store idempotency response
+        store_idempotency_response(
+            idempotency_key, request.method, request.path, 200, response_body
+        )
         
         return success_response(
             resp_data,
@@ -184,19 +207,29 @@ def update_task_assessment(current_user, task_id):
     """
     Update CTV assessment on task
     P0-04: Requires If-Match header for concurrency control
-    DEC-06: Optional Idempotency-Key for replay protection
+    DEC-06: Supports Idempotency-Key header for replay protection
     Returns 409 CONCURRENT_MODIFICATION if version mismatch
     """
     try:
+        # DEC-06: Check idempotency key
+        idempotency_key = request.headers.get('Idempotency-Key')
+        was_processed, status_code, response_body, error = check_idempotency_key(
+            idempotency_key, request.method, request.path
+        )
+        
+        if was_processed:
+            # Return cached response
+            return jsonify(response_body), status_code
+        
         # Get task
         task = Task.query.filter_by(id=task_id).first()
         if not task:
             return not_found(f'Task {task_id} not found')
         
-        # Check system access
+        # Check system access - return 404 if unauthorized (security masking)
         has_access, error_resp = check_system_access(current_user, task.system_id)
         if not has_access:
-            return error_resp
+            return not_found(f'Task {task_id} not found')
         
         # Validate If-Match header (P0-04 concurrency control)
         if_match = request.headers.get('If-Match')
@@ -231,15 +264,19 @@ def update_task_assessment(current_user, task_id):
         new_etag = generate_etag(task)
         
         # Response with new ETag
-        resp = jsonify({
+        task_data = task.to_dict()
+        response_body = {
             'success': True,
-            'data': task.to_dict(),
-            'meta': {
-                'requestId': request.headers.get('X-Request-ID', ''),
-                'timestamp': datetime.utcnow().isoformat() + 'Z'
-            }
-        })
+            'data': task_data,
+            'meta': {'requestId': request.headers.get('X-Request-ID', '')}
+        }
         
+        # DEC-06: Store idempotency response
+        store_idempotency_response(
+            idempotency_key, request.method, request.path, 200, response_body
+        )
+        
+        resp = jsonify(response_body)
         resp.headers['ETag'] = new_etag
         
         return resp, 200
@@ -260,9 +297,20 @@ def update_task_assessment(current_user, task_id):
 def create_task(current_user):
     """
     Create a new task
+    DEC-06: Supports Idempotency-Key header for replay protection
     For testing/admin use
     """
     try:
+        # DEC-06: Check idempotency key
+        idempotency_key = request.headers.get('Idempotency-Key')
+        was_processed, status_code, response_body, error = check_idempotency_key(
+            idempotency_key, request.method, request.path
+        )
+        
+        if was_processed:
+            # Return cached response
+            return jsonify(response_body), status_code
+        
         data = request.get_json() or {}
         
         # Validate required fields
@@ -279,7 +327,7 @@ def create_task(current_user):
         
         has_access, error_resp = check_system_access(current_user, system.id)
         if not has_access:
-            return error_resp
+            return not_found(f'System {data["system_id"]} not found')
         
         # Create task
         task = Task(
@@ -294,8 +342,20 @@ def create_task(current_user):
         db.session.add(task)
         db.session.commit()
         
+        response_data = task.to_dict()
+        response_body = {
+            'success': True,
+            'data': response_data,
+            'meta': {'requestId': request.headers.get('X-Request-ID', '')}
+        }
+        
+        # DEC-06: Store idempotency response
+        store_idempotency_response(
+            idempotency_key, request.method, request.path, 201, response_body
+        )
+        
         return success_response(
-            task.to_dict(),
+            response_data,
             meta={'requestId': request.headers.get('X-Request-ID', '')},
             status_code=201
         )
