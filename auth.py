@@ -3,6 +3,7 @@ Authentication & Authorization Middleware
 JWT Bearer Token verification and role-based access control
 """
 import jwt
+import uuid
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import request, jsonify, current_app
@@ -286,21 +287,38 @@ def create_auth_test_routes(app):
         if current_app.config.get('FLASK_ENV') != 'development':
             return jsonify({'error': 'Not available in production'}), 403
         
+        from models import User
+        
         role = request.args.get('role', 'CTV')
         email = request.args.get('email', f'user_{role}@secureops.local')
-        user_id = request.args.get('user_id', 'test_user_001')
+        user_id = request.args.get('user_id', None)
         systems = request.args.getlist('systems') or ['default']
+        
+        # If user_id not provided, find user with matching role
+        if not user_id:
+            user = User.query.filter_by(role=role).first()
+            if user:
+                user_id = user.id
+                email = user.email
+            else:
+                user_id = f'test_user_{role}'
         
         token = generate_mock_token(user_id, email, role, systems)
         
         return jsonify({
             'success': True,
-            'token': token,
-            'user': {
-                'sub': user_id,
-                'email': email,
-                'role': role,
-                'systems': systems
+            'data': {
+                'token': token,
+                'user': {
+                    'sub': user_id,
+                    'email': email,
+                    'role': role,
+                    'systems': systems
+                }
+            },
+            'meta': {
+                'requestId': str(uuid.uuid4()),
+                'timestamp': datetime.utcnow().isoformat() + 'Z'
             }
         }), 200
     
