@@ -1,0 +1,10 @@
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+psycopg[binary]>=3.2.0
+python-dotenv==1.0.0
+Werkzeug==3.0.1
+PyJWT==2.15.1
+marshmallow==3.20.1
+marshmallow-sqlalchemy==0.29.0
+Alembic==1.13.1
+python-dateutil==2.8.2
