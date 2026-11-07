@@ -22,9 +22,8 @@ def create_app(config_name=None):
     app.register_blueprint(task_bp)
     app.register_blueprint(evidence_bp)
     
-    # Register auth test routes (development only)
-    if app.config.get('FLASK_ENV') == 'development':
-        create_auth_test_routes(app)
+    # Register auth test routes (for testing/debugging on all environments)
+    create_auth_test_routes(app)
     
     # Health check endpoint
     @app.route('/health', methods=['GET'])
