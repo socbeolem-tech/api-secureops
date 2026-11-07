@@ -26,9 +26,12 @@ APP_PORT="5000"
 echo "📦 [1/8] Updating system packages..."
 sudo apt update
 sudo apt upgrade -y
-sudo apt install -y python3.10 python3.10-venv python3-pip python3-dev
+sudo apt install -y python3 python3-venv python3-pip python3-dev
 sudo apt install -y postgresql postgresql-contrib
 sudo apt install -y git curl wget supervisor nginx
+
+# Check Python version
+echo "✅ Python version: $(python3 --version)"
 
 # ============================================================
 # STEP 2: POSTGRESQL SETUP
