@@ -95,7 +95,7 @@ FLASK_ENV=production
 FLASK_APP=app.py
 FLASK_DEBUG=0
 
-DATABASE_URL=postgresql://secureops_user:scopATAAI@2026@localhost:5432/secureops_db
+DATABASE_URL=postgresql://secureops_user:scopATAAI%402026@localhost:5432/secureops_db
 JWT_SECRET_KEY=$(openssl rand -hex 32)
 UPLOAD_DIR=/home/apiuser/api_project/uploads
 MAX_UPLOAD_SIZE_MB=100
