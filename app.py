@@ -67,8 +67,14 @@ def create_app(config_name=None):
     
     return app
 
+# ============================================================
+# APPLICATION ENTRY POINT (for Gunicorn & development)
+# ============================================================
+
+# Create app instance at module level (Gunicorn needs this)
+app = create_app()
+
 if __name__ == '__main__':
-    app = create_app()
     app.run(
         debug=app.config.get('DEBUG', True),
         host=os.getenv('SERVER_HOST', '0.0.0.0'),
