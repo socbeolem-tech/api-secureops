@@ -281,11 +281,10 @@ def create_auth_test_routes(app):
     @app.route('/auth/test-token', methods=['GET'])
     def get_test_token():
         """
-        Generate a test token for development
+        Generate a test token for development/testing
         Usage: GET /auth/test-token?role=CTV&email=user@example.com
         """
-        if current_app.config.get('FLASK_ENV') != 'development':
-            return jsonify({'error': 'Not available in production'}), 403
+        # Note: Available on all environments for API testing
         
         from models import User
         
